@@ -1,6 +1,7 @@
 import cors from 'cors';
 import express, { Router } from 'express';
 import serverless from 'serverless-http';
+import unorm from 'unorm';
 const readXlsxFile = require('read-excel-file/node');
 import { storageRef } from './firebase/firebase';
 
@@ -85,20 +86,33 @@ router.post('/sindicatoPorClasseUF', (req, res) => {
   const file = storageRef.file(`${uf}.json`);
   file.download().then((data) => {
     objects = JSON.parse(data.toString());
+    const normalizarTexto = (texto) =>
+      texto
+        ? unorm.nfd(texto.toLowerCase()).replace(/[\u0300-\u036f]/g, '')
+        : '';
     let newArray = objects.filter((objeto) => {
       // Verifica se os valores passados estão contidos nos respectivos campos do objeto
       const classeMatch = classe
-        ? new RegExp(classe, 'i').test(objeto.Classe)
+        ? normalizarTexto(objeto.Classe).includes(
+            normalizarTexto(classe.toLowerCase())
+          )
         : true;
       const categoriaMatch = categoria
-        ? new RegExp(categoria, 'i').test(objeto.Categoria)
+        ? normalizarTexto(objeto.Categoria).includes(
+            normalizarTexto(categoria.toLowerCase())
+          )
         : true;
       const ufMatch = uf
-        ? new RegExp(uf, 'i').test(objeto['UF da sede'])
+        ? normalizarTexto(objeto['UF da sede']).includes(
+            normalizarTexto(uf.toLowerCase())
+          )
         : true;
       const baseTerritorialMatch = cidade
-        ? new RegExp(cidade, 'i').test(objeto['Base Territorial'])
+        ? normalizarTexto(objeto['Base Territorial']).includes(
+            normalizarTexto(cidade.toLowerCase())
+          )
         : true;
+
       // Retorna verdadeiro apenas se todas as condições forem verdadeiras
       return classeMatch && categoriaMatch && ufMatch && baseTerritorialMatch;
     });
@@ -106,4 +120,5 @@ router.post('/sindicatoPorClasseUF', (req, res) => {
   });
 });
 api.use('/api/', router);
-api.listen(3333, () => 'server running on port 3333');
+// api.listen(3333, () => 'server running on port 3333');
+export const handler = serverless(api);
